@@ -1,42 +1,58 @@
 const fs = require('fs');
 const path = require('path');
-const pathFileFrom = path.join(__dirname, 'files');
-const pathFileTo = path.join(__dirname, 'files-copy');
+const fsPromises = fs.promises;
 
-function createDir() {
-  fs.mkdir(pathFileTo, (err) => {
-    if (err) console.log(err);
-    copyFiles();
-  });
-}
+let originalPath = path.join(__dirname, 'files');
+let targetPath = path.join(__dirname, 'files-copy');
 
-function checkFolderExists() {
-  fs.access(pathFileTo, (err) => {
-    if (err) {
-      createDir();
-    } else {
-      fs.rm(pathFileTo, { recursive: true }, (err) => {
-        if (err) console.log(err);
-        createDir();
-      });
+async function deleteFolder(target) {
+  try {
+    await fsPromises.rm(target, { recursive: true });
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error('Error:', error.message);
     }
-  });
+  }
 }
-checkFolderExists();
 
-function copyFiles() {
-  fs.readdir(pathFileFrom, (err, files) => {
-    if (err) console.log(err);
-
-    files.forEach((file) => {
-      fs.copyFile(
-        `${pathFileFrom}\\${file}`,
-        `${pathFileTo}\\${file}`,
-        (err) => {
-          if (err) console.log(err);
-          console.log(`File(s) copied successfully: ${file}`);
-        },
-      );
-    });
-  });
+async function createFolder(target) {
+  try {
+    await fsPromises.mkdir(target, { recursive: true });
+  } catch (error) {
+    console.error('Error:', error.message);
+  }
 }
+
+async function getFiles(target) {
+  try {
+    return await fsPromises.readdir(target);
+  } catch (error) {
+    console.error('Error:', error.message);
+  }
+}
+
+async function copyDirectory(originalPath, targetPath) {
+  try {
+    await deleteFolder(targetPath);
+    await createFolder(targetPath);
+    let files = await getFiles(originalPath);
+
+    await Promise.all(
+      files.map(async (file) => {
+        const filePath = path.join(originalPath, file);
+        const fileCopyPath = path.join(targetPath, file);
+        const stat = await fsPromises.stat(filePath);
+
+        if (stat.isDirectory()) {
+          await copyDirectory(filePath, fileCopyPath);
+        } else {
+          await fsPromises.copyFile(filePath, fileCopyPath);
+        }
+      }),
+    );
+  } catch (error) {
+    console.error('Error:', error.message);
+  }
+}
+
+copyDirectory(originalPath, targetPath);
