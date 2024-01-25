@@ -7,4 +7,4 @@ let data = '';
 
 streamRead.on('data', (chunk) => (data += chunk));
 streamRead.on('error', (error) => console.log('Error', error.message));
-streamRead.on('end', () => console.log('End', console.log(data)));
+streamRead.on('end', () => console.log(data));
